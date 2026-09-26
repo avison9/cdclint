@@ -200,3 +200,34 @@ func ItemLine(text, item string, cursor *int) int {
 	*cursor = at + len(item)
 	return 1 + strings.Count(text[:at], "\n")
 }
+
+// NameLine returns the 1-based line, counted from the start of text, of the
+// first occurrence of the identifier name at or after *cursor, quoted or not,
+// as a whole word; cursor is advanced past it so the next search starts
+// there. It returns 0, leaving cursor alone, when name is not found. The
+// readers use it to place each column an ALTER TABLE adds on its own line,
+// since the actions they parse have had their whitespace folded.
+func NameLine(text, name string, cursor *int) int {
+	lower := strings.ToLower(text)
+	target := strings.ToLower(name)
+	for from := *cursor; from < len(lower); {
+		at := strings.Index(lower[from:], target)
+		if at < 0 {
+			return 0
+		}
+		at += from
+		end := at + len(target)
+		before := at == 0 || !identChar(lower[at-1])
+		after := end >= len(lower) || !identChar(lower[end])
+		if before && after {
+			*cursor = end
+			return 1 + strings.Count(text[:at], "\n")
+		}
+		from = at + 1
+	}
+	return 0
+}
+
+func identChar(c byte) bool {
+	return c == '_' || c == '$' || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+}

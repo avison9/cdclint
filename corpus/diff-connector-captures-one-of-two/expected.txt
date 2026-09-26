@@ -1,4 +1,4 @@
-warning schema-before-connector diff-connector-captures-one-of-two/migrations/0141_movement_doubt_cleared.sql:5
+warning schema-before-connector diff-connector-captures-one-of-two/migrations/0141_movement_doubt_cleared.sql:7
   this change adds public.reports.movement_cleared_by to a captured table without adding it to column.include.list in diff-connector-captures-one-of-two/connector.json (compared with base)
   the column will not be in the stream; if a sink is later given it, every row will be the default until a snapshot
   fix: add public.reports.movement_cleared_by to column.include.list in the same change, or leave it off on purpose and let this warning stand as the record of that (it blocks only under --fail-on warning)
