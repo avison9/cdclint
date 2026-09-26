@@ -61,7 +61,7 @@ func Apply(src *model.Source, file, text string) error {
 		case ddl.HasPrefixFold(w, "CREATE", "TABLE"), ddl.HasPrefixFold(w, "CREATE", "UNLOGGED", "TABLE"):
 			createTable(src, st.Text, pos)
 		case ddl.HasPrefixFold(w, "ALTER", "TABLE"):
-			alterTable(src, w, pos)
+			alterTable(src, st.Text, w, pos)
 		case ddl.HasPrefixFold(w, "DROP", "TABLE"):
 			dropTable(src, w)
 		}
@@ -174,7 +174,7 @@ func containsFold(w []string, kw string) bool {
 	return false
 }
 
-func alterTable(src *model.Source, w []string, pos model.Pos) {
+func alterTable(src *model.Source, text string, w []string, pos model.Pos) {
 	i := 2
 	for i < len(w) && (strings.EqualFold(w[i], "ONLY") || strings.EqualFold(w[i], "IF") || strings.EqualFold(w[i], "EXISTS")) {
 		i++
@@ -189,6 +189,10 @@ func alterTable(src *model.Source, w []string, pos model.Pos) {
 	}
 	// Actions are comma-separated after the name; each starts with a verb.
 	actions := ddl.SplitTop(strings.Join(w[i+1:], " "))
+	// Each added column is placed on its own line: search the statement for
+	// its name, after the table's name and after the previous action.
+	cursor := 0
+	ddl.NameLine(text, table, &cursor)
 	for _, a := range actions {
 		aw := ddl.Words(a)
 		if len(aw) == 0 {
@@ -208,7 +212,11 @@ func alterTable(src *model.Source, w []string, pos model.Pos) {
 			}
 			name := ddl.Unquote(aw[j])
 			if t.Column(name) == nil {
-				t.Columns = append(t.Columns, model.Column{Name: name, Type: strings.Join(typeWords(aw[j+1:]), " "), Pos: pos})
+				at := pos
+				if line := ddl.NameLine(text, name, &cursor); line > 0 {
+					at.Line = pos.Line + line - 1
+				}
+				t.Columns = append(t.Columns, model.Column{Name: name, Type: strings.Join(typeWords(aw[j+1:]), " "), Pos: at})
 			}
 		case ddl.HasPrefixFold(aw, "DROP", "COLUMN"), ddl.HasPrefixFold(aw, "DROP") && len(aw) >= 2 && !strings.EqualFold(aw[1], "CONSTRAINT"):
 			j := 1

@@ -1,13 +1,13 @@
-warning schema-before-connector diff-connector-touched-other-table/migrations/0141_movement_doubt_cleared.sql:6
-  this change adds public.reports.movement_clear_reason to a captured table without adding it to column.include.list in diff-connector-touched-other-table/connector.json (compared with base)
-  the column will not be in the stream; if a sink is later given it, every row will be the default until a snapshot
-  fix: add public.reports.movement_clear_reason to column.include.list in the same change, or leave it off on purpose and let this warning stand as the record of that (it blocks only under --fail-on warning)
-warning schema-before-connector diff-connector-touched-other-table/migrations/0141_movement_doubt_cleared.sql:6
+warning schema-before-connector diff-connector-touched-other-table/migrations/0141_movement_doubt_cleared.sql:7
   this change adds public.reports.movement_cleared_at to a captured table without adding it to column.include.list in diff-connector-touched-other-table/connector.json (compared with base)
   the column will not be in the stream; if a sink is later given it, every row will be the default until a snapshot
   fix: add public.reports.movement_cleared_at to column.include.list in the same change, or leave it off on purpose and let this warning stand as the record of that (it blocks only under --fail-on warning)
-warning schema-before-connector diff-connector-touched-other-table/migrations/0141_movement_doubt_cleared.sql:6
+warning schema-before-connector diff-connector-touched-other-table/migrations/0141_movement_doubt_cleared.sql:8
   this change adds public.reports.movement_cleared_by to a captured table without adding it to column.include.list in diff-connector-touched-other-table/connector.json (compared with base)
   the column will not be in the stream; if a sink is later given it, every row will be the default until a snapshot
   fix: add public.reports.movement_cleared_by to column.include.list in the same change, or leave it off on purpose and let this warning stand as the record of that (it blocks only under --fail-on warning)
+warning schema-before-connector diff-connector-touched-other-table/migrations/0141_movement_doubt_cleared.sql:9
+  this change adds public.reports.movement_clear_reason to a captured table without adding it to column.include.list in diff-connector-touched-other-table/connector.json (compared with base)
+  the column will not be in the stream; if a sink is later given it, every row will be the default until a snapshot
+  fix: add public.reports.movement_clear_reason to column.include.list in the same change, or leave it off on purpose and let this warning stand as the record of that (it blocks only under --fail-on warning)
 0 error(s), 3 warning(s), 0 info
