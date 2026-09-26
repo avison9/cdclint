@@ -98,7 +98,7 @@ func (r *reader) statement(file string, st sqlsplit.Statement) error {
 	case ddl.HasPrefixFold(w, "CREATE", "TABLE"):
 		err = r.createTable(body, w, pos)
 	case ddl.HasPrefixFold(w, "ALTER") && tableKeyword(w) > 0:
-		err = r.alterTable(w, tableKeyword(w), pos)
+		err = r.alterTable(body, w, tableKeyword(w), pos)
 	case ddl.HasPrefixFold(w, "RENAME", "TABLE"):
 		err = r.renameTables(w[2:])
 	case ddl.HasPrefixFold(w, "DROP", "TABLE"), ddl.HasPrefixFold(w, "DROP", "TEMPORARY", "TABLE"):
@@ -330,7 +330,7 @@ func typeWords(w []string) []string {
 	return w
 }
 
-func (r *reader) alterTable(w []string, at int, pos model.Pos) error {
+func (r *reader) alterTable(text string, w []string, at int, pos model.Pos) error {
 	if at+1 >= len(w) {
 		return nil
 	}
@@ -342,6 +342,10 @@ func (r *reader) alterTable(w []string, at int, pos model.Pos) error {
 	if t == nil {
 		return nil
 	}
+	// Each added column is placed on its own line: search the statement for
+	// its name, after the table's name and after the previous action.
+	cursor := 0
+	ddl.NameLine(text, table, &cursor)
 	// Actions are comma-separated after the name; each starts with a verb.
 	for _, a := range ddl.SplitTop(strings.Join(w[at+2:], " ")) {
 		aw := ddl.Words(a)
@@ -372,12 +376,12 @@ func (r *reader) alterTable(w []string, at int, pos model.Pos) error {
 				inner, _, _ := ddl.Body(aw[j])
 				for _, def := range ddl.SplitTop(inner) {
 					if dw := ddl.Words(def); len(dw) > 0 && !isKey(dw) {
-						addColumn(t, dw, pos)
+						addColumn(t, dw, linePos(text, dw[0], pos, &cursor))
 					}
 				}
 				continue
 			}
-			addColumn(t, aw[j:], pos)
+			addColumn(t, aw[j:], linePos(text, aw[j], pos, &cursor))
 		case "DROP":
 			if j == 1 && (isKey(aw[1:]) || strings.EqualFold(aw[1], "PARTITION") || strings.EqualFold(aw[1], "DEFAULT")) {
 				continue
@@ -423,6 +427,15 @@ func (r *reader) alterTable(w []string, at int, pos model.Pos) error {
 		}
 	}
 	return nil
+}
+
+// linePos is pos moved to the line in text where the column name next
+// appears, or pos itself when it cannot be found.
+func linePos(text, name string, pos model.Pos, cursor *int) model.Pos {
+	if line := ddl.NameLine(text, ddl.Unquote(name), cursor); line > 0 {
+		pos.Line += line - 1
+	}
+	return pos
 }
 
 // addColumn adds one column definition, honouring FIRST and AFTER.

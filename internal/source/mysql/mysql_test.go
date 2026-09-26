@@ -116,6 +116,26 @@ func TestDownMigrationsAreLeftOut(t *testing.T) {
 	}
 }
 
+func TestColumnsAnAlterAddsAreOnTheirOwnLines(t *testing.T) {
+	text := "CREATE TABLE orders (id INT);\n" +
+		"ALTER TABLE `orders`\n" +
+		"  ADD COLUMN `currency` CHAR(3) AFTER id,\n" +
+		"  ADD (\n" +
+		"    paid_at DATETIME,\n" +
+		"    orders_total DECIMAL(12,2)\n" +
+		"  );\n"
+	src, err := ReadFiles([]source.NamedFile{{Path: "V2.sql", Text: text}}, "shop")
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := src.Table("shop", "orders")
+	for name, want := range map[string]int{"currency": 3, "paid_at": 5, "orders_total": 6} {
+		if c := o.Column(name); c == nil || c.Pos.Line != want {
+			t.Errorf("%s at %+v, want line %d", name, c, want)
+		}
+	}
+}
+
 func TestAnUnqualifiedTableWithNoDatabaseIsAnError(t *testing.T) {
 	_, err := ReadFiles([]source.NamedFile{{Path: "V1.sql", Text: "CREATE TABLE t (id INT);"}}, "")
 	if err == nil || !strings.Contains(err.Error(), "database.include.list") {

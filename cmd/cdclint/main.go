@@ -14,12 +14,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/avison9/cdclint/internal/capture/debezium"
 	"github.com/avison9/cdclint/internal/engine"
 	"github.com/avison9/cdclint/internal/gitread"
+	"github.com/avison9/cdclint/internal/ignore"
 	"github.com/avison9/cdclint/internal/model"
 	"github.com/avison9/cdclint/internal/sink/clickhouse"
 	"github.com/avison9/cdclint/internal/sink/connect"
@@ -36,16 +38,18 @@ func (m *multi) String() string     { return strings.Join(*m, ",") }
 func (m *multi) Set(v string) error { *m = append(*m, v); return nil }
 
 func main() {
-	os.Exit(run(os.Args[1:]))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-func run(args []string) int {
+func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("cdclint", flag.ContinueOnError)
+	fs.SetOutput(stderr)
 	var (
 		migrations = fs.String("migrations", "", "directory of source migrations, applied in name order; Postgres or MySQL, from the connector class, or say it with postgres:DIR or mysql:DIR")
 		connector  = fs.String("connector", "", "Debezium source connector JSON")
 		sinks      multi
 		sinkConns  multi
+		disable    multi
 		format     = fs.String("format", "text", "output format: text or json")
 		minSev     = fs.String("fail-on", "error", "exit non-zero at this severity or above: error, warning, info")
 		base       = fs.String("base", "", "git ref of the change's base (a branch, a commit, origin/main); enables schema-before-connector, which judges the diff")
@@ -53,6 +57,8 @@ func run(args []string) int {
 	)
 	fs.Var(&sinks, "sink", "sink DDL directory as [dialect:]DIR; dialect is clickhouse (default), bigquery, snowflake or iceberg; repeatable")
 	fs.Var(&sinkConns, "sink-connector", "Kafka Connect sink connector JSON; repeatable")
+	fs.Var(&disable, "disable", "rule names to leave out, comma-separated or repeated: "+strings.Join(engine.Rules, ", ")+
+		"; their findings are not shown and do not fail the run, and the output says how many were left out")
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "usage: cdclint --migrations DIR --connector FILE --sink [dialect:]DIR [--sink-connector FILE]...")
 		fs.PrintDefaults()
@@ -61,8 +67,21 @@ func run(args []string) int {
 		return 2
 	}
 	if *showVer || (fs.NArg() > 0 && fs.Arg(0) == "version") {
-		fmt.Println("cdclint", version)
+		fmt.Fprintln(stdout, "cdclint", version)
 		return 0
+	}
+	disabled := map[string]bool{}
+	for _, v := range disable {
+		for _, name := range strings.Split(v, ",") {
+			if name = strings.TrimSpace(name); name == "" {
+				continue
+			}
+			if !engine.KnownRule(name) {
+				fmt.Fprintf(stderr, "cdclint: --disable: unknown rule %q; the rules are %s\n", name, strings.Join(engine.Rules, ", "))
+				return 2
+			}
+			disabled[name] = true
+		}
 	}
 	if *migrations == "" || *connector == "" || len(sinks) == 0 {
 		fs.Usage()
@@ -70,21 +89,29 @@ func run(args []string) int {
 	}
 	in, err := load(*migrations, *connector, sinks, sinkConns)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "cdclint:", err)
+		fmt.Fprintln(stderr, "cdclint:", err)
 		return 2
 	}
-	if *base != "" {
+	// Disabling the diff rule is the same as not giving --base: filtering
+	// its findings afterwards would also drop the columns it raised, which
+	// source-column-not-captured then leaves out of its list, so they
+	// would appear nowhere.
+	if *base != "" && !disabled["schema-before-connector"] {
 		b, err := LoadBase(*base, *migrations, *connector)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "cdclint:", err)
+			fmt.Fprintln(stderr, "cdclint:", err)
 			return 2
 		}
 		in.Base = b
 	}
-	findings := engine.Run(in)
+	findings, hidden, acked, err := lint(in, markerDirs(*migrations, sinks), disabled)
+	if err != nil {
+		fmt.Fprintln(stderr, "cdclint:", err)
+		return 2
+	}
 	switch *format {
 	case "json":
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		type out struct {
 			Rule     string `json:"rule"`
@@ -102,8 +129,15 @@ func run(args []string) int {
 			rows = []out{}
 		}
 		_ = enc.Encode(rows)
+		// The array's shape is what consumers parse, so the notes go
+		// to stderr rather than into it.
+		for _, line := range strings.SplitAfter(ackNote(acked)+hiddenNote(hidden), "\n") {
+			if line != "" {
+				fmt.Fprint(stderr, "cdclint: "+line)
+			}
+		}
 	default:
-		os.Stdout.WriteString(Render(findings))
+		fmt.Fprint(stdout, TextReport(findings, hidden, acked))
 	}
 	threshold := model.Error
 	switch *minSev {
@@ -118,6 +152,114 @@ func run(args []string) int {
 		}
 	}
 	return 0
+}
+
+// lint runs the rules, lets cdclint:ignore markers in the SQL directories
+// acknowledge findings, and leaves out disabled rules. Markers are applied
+// first, so a marker for a disabled rule is not reported as covering
+// nothing; acknowledged findings of a disabled rule are left out too.
+func lint(in *engine.Input, dirs []string, disabled map[string]bool) ([]model.Finding, map[string]int, []ignore.Ack, error) {
+	markers, err := ignore.Scan(dirs)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	ran := func(rule string) bool {
+		if disabled[rule] {
+			return false
+		}
+		return rule != "schema-before-connector" || in.Base != nil
+	}
+	// schema-before-connector judges the change, so its marker only ever
+	// covers something in the pull request that adds the column.
+	diffRules := map[string]bool{"schema-before-connector": true}
+	kept, acked := ignore.Apply(engine.Run(in), markers, engine.KnownRule, ran, diffRules)
+	kept, hidden := without(kept, disabled)
+	var shown []ignore.Ack
+	for _, a := range acked {
+		if !disabled[a.Finding.Rule] {
+			shown = append(shown, a)
+		}
+	}
+	return kept, hidden, shown, nil
+}
+
+// markerDirs are the directories whose SQL files may carry cdclint:ignore
+// markers: the migrations and every sink directory, with their dialect
+// prefixes taken off.
+func markerDirs(migrations string, sinks []string) []string {
+	strip := func(s string) string {
+		if i := strings.Index(s, ":"); i > 0 && !strings.Contains(s[:i], "/") {
+			return s[i+1:]
+		}
+		return s
+	}
+	dirs := []string{strip(migrations)}
+	for _, s := range sinks {
+		dirs = append(dirs, strip(s))
+	}
+	return dirs
+}
+
+// TextReport is the text output: the findings that stand and a summary,
+// then what cdclint:ignore acknowledged and what --disable left out. A run
+// whose findings were all acknowledged or disabled does not claim that the
+// three files agree, which would be more than was checked.
+func TextReport(findings []model.Finding, hidden map[string]int, acked []ignore.Ack) string {
+	var b strings.Builder
+	switch {
+	case len(findings) > 0 || len(hidden) == 0 && len(acked) == 0:
+		b.WriteString(Render(findings))
+	case len(acked) == 0:
+		b.WriteString("ok: nothing to report outside the disabled rules\n")
+	case len(hidden) == 0:
+		b.WriteString("ok: nothing to report beyond what cdclint:ignore acknowledges\n")
+	default:
+		b.WriteString("ok: nothing to report outside the disabled rules and what cdclint:ignore acknowledges\n")
+	}
+	b.WriteString(ackNote(acked))
+	b.WriteString(hiddenNote(hidden))
+	return b.String()
+}
+
+// ackNote lists each acknowledged finding with the reason its marker gives.
+func ackNote(acked []ignore.Ack) string {
+	var b strings.Builder
+	for _, a := range acked {
+		fmt.Fprintf(&b, "acknowledged (cdclint:ignore): %s %s: %s\n", a.Finding.Rule, a.Finding.Pos, a.Reason)
+	}
+	return b.String()
+}
+
+// without removes the findings of disabled rules and counts them by rule.
+func without(findings []model.Finding, disabled map[string]bool) ([]model.Finding, map[string]int) {
+	if len(disabled) == 0 {
+		return findings, nil
+	}
+	var kept []model.Finding
+	hidden := map[string]int{}
+	for _, f := range findings {
+		if disabled[f.Rule] {
+			hidden[f.Rule]++
+			continue
+		}
+		kept = append(kept, f)
+	}
+	return kept, hidden
+}
+
+// hiddenNote says what --disable left out, so a filtered run never reads as
+// a clean one. It is empty when nothing was left out.
+func hiddenNote(hidden map[string]int) string {
+	if len(hidden) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, r := range engine.Rules {
+		if n := hidden[r]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%s %d", r, n))
+		}
+	}
+	return "not shown (--disable): " + strings.Join(parts, ", ") + "\n"
 }
 
 // Render is the text output: findings, then a one-line summary.

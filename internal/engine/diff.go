@@ -111,7 +111,7 @@ func schemaBeforeConnector(in *Input, reads []Read) ([]model.Finding, map[string
 			fs = append(fs, model.Finding{
 				Rule: "schema-before-connector", Severity: model.Warning, Pos: c.Pos,
 				Message: fmt.Sprintf("this change adds %s to a captured table without adding it to %s in %s (compared with %s)\nthe column will not be in the stream; if a sink is later given it, every row will be the default until a snapshot", q, in.Contract.ColumnListSetting(), in.Contract.Pos().File, short(in.Base.Ref)),
-				Fix:     fmt.Sprintf("%s in the same change, or leave it off on purpose and let this warning stand as the record of that (it blocks only under --fail-on warning)", edit(in.Contract.ColumnListSetting(), q)),
+				Fix:     fmt.Sprintf("%s in the same change, or, if it is left off on purpose, say so on the line that adds it: -- cdclint:ignore schema-before-connector: <why>", edit(in.Contract.ColumnListSetting(), q)),
 			})
 		}
 	}

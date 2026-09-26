@@ -83,3 +83,23 @@ func TestANameGluedToAMultiLineColumnListDoesNotPanic(t *testing.T) {
 		t.Errorf("postid line = %d, want 3", r.Columns[1].Pos.Line)
 	}
 }
+
+func TestColumnsAnAlterAddsAreOnTheirOwnLines(t *testing.T) {
+	src := &model.Source{}
+	text := "CREATE TABLE reports (id UUID);\n" +
+		"ALTER TABLE reports\n" +
+		"    ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMPTZ,\n" +
+		"    -- a comment between actions\n" +
+		"    ADD COLUMN cleared_by UUID REFERENCES users(id),\n" +
+		"    ADD COLUMN reports_note TEXT;\n" +
+		"ALTER TABLE reports ADD COLUMN one_line INT;\n"
+	if err := Apply(src, "0141.sql", text); err != nil {
+		t.Fatal(err)
+	}
+	r := src.Table("public", "reports")
+	for name, want := range map[string]int{"cleared_at": 3, "cleared_by": 5, "reports_note": 6, "one_line": 7} {
+		if c := r.Column(name); c == nil || c.Pos.Line != want {
+			t.Errorf("%s at %+v, want line %d", name, c, want)
+		}
+	}
+}

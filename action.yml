@@ -35,6 +35,13 @@ inputs:
     description: "Exit non-zero at this severity or above: error, warning or info."
     required: false
     default: error
+  disable:
+    description: >-
+      Rules to leave out, comma-separated, such as source-column-not-captured.
+      Their findings are not shown and do not fail the step; the log says how
+      many were left out. An unknown rule name fails the step.
+    required: false
+    default: ""
   version:
     description: cdclint release to run, as a tag such as v0.1.0; latest by default.
     required: false
@@ -121,11 +128,15 @@ runs:
         SINKS: ${{ inputs.sink }}
         SINK_CONNECTORS: ${{ inputs.sink-connector }}
         FAIL_ON: ${{ inputs.fail-on }}
+        DISABLE: ${{ inputs.disable }}
         BASE: ${{ inputs.base }}
         PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         set -uo pipefail
         args=(--migrations "$MIGRATIONS" --connector "$CONNECTOR" --fail-on "$FAIL_ON")
+        if [ -n "$DISABLE" ]; then
+          args+=(--disable "$DISABLE")
+        fi
         # The diff rule needs the base commit's objects, and
         # actions/checkout fetches one commit by default. Whatever form the
         # base was given in (main, origin/main, a tag, a commit id), it is
