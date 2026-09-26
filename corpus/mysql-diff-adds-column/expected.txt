@@ -1,5 +1,5 @@
 warning schema-before-connector mysql-diff-adds-column/migrations/V2__orders_coupon.sql:3
   this change adds shop.orders.coupon_code to a captured table without adding it to column.include.list in mysql-diff-adds-column/connector.json (compared with base)
   the column will not be in the stream; if a sink is later given it, every row will be the default until a snapshot
-  fix: add shop.orders.coupon_code to column.include.list in the same change, or leave it off on purpose and let this warning stand as the record of that (it blocks only under --fail-on warning)
+  fix: add shop.orders.coupon_code to column.include.list in the same change, or, if it is left off on purpose, say so on the line that adds it: -- cdclint:ignore schema-before-connector: <why>
 0 error(s), 1 warning(s), 0 info

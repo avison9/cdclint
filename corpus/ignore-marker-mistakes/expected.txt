@@ -1,0 +1,15 @@
+warning ignore-marker ignore-marker-mistakes/sink/0001_orders.sql:3
+  cdclint:ignore topic-table-mapping covers no finding on the line below it
+  fix: put it after the code on the line the finding points at, or alone on the line above it, or remove it if the finding is gone
+warning ignore-marker ignore-marker-mistakes/sink/0001_orders.sql:8
+  cdclint:ignore sink-column-not-captured gives no reason, so it acknowledges nothing; the reason is the record of the decision
+  fix: say why after a colon: -- cdclint:ignore sink-column-not-captured: <why>
+error sink-column-not-captured ignore-marker-mistakes/sink/0001_orders.sql:9
+  public.orders.currency is read by kafka_orders (reads topic shop.public.orders) but is not matched by column.include.list in ignore-marker-mistakes/connector.json
+  every row will carry the column's default, with no error anywhere
+  fix: add public.orders.currency to column.include.list, deploy the connector, then apply the sink schema; rows already written need a snapshot
+warning ignore-marker ignore-marker-mistakes/sink/0001_orders.sql:11
+  cdclint:ignore names sink-colum-unknown, which is not a rule, so it acknowledges nothing
+  fix: use one of the rule names cdclint --help lists
+1 error(s), 3 warning(s), 0 info
+acknowledged (cdclint:ignore): sink-column-not-captured ignore-marker-mistakes/sink/0001_orders.sql:11: filled by a backfill job, not by the stream

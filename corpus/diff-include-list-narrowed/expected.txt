@@ -4,5 +4,5 @@ info source-column-not-captured diff-include-list-narrowed/migrations/0033_repor
 warning schema-before-connector diff-include-list-narrowed/migrations/0035_validation_response_distance.sql:5
   this change adds public.report_validations.response_distance_m to a captured table without adding it to column.include.list in diff-include-list-narrowed/connector.json (compared with base)
   the column will not be in the stream; if a sink is later given it, every row will be the default until a snapshot
-  fix: add public.report_validations.response_distance_m to column.include.list in the same change, or leave it off on purpose and let this warning stand as the record of that (it blocks only under --fail-on warning)
+  fix: add public.report_validations.response_distance_m to column.include.list in the same change, or, if it is left off on purpose, say so on the line that adds it: -- cdclint:ignore schema-before-connector: <why>
 0 error(s), 1 warning(s), 1 info

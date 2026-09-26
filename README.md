@@ -185,6 +185,30 @@ does not want it on every run. Disabling `schema-before-connector` is the same
 as leaving out `--base`. An unknown rule name is an error, not a filter that
 hides nothing.
 
+### Recording a decision: `cdclint:ignore`
+
+Some findings are decisions, not mistakes: a column holding PII is left off
+the include list on purpose. Say so in a comment on the line the finding
+points at, with the reason:
+
+```sql
+ALTER TABLE users
+    ADD COLUMN ssn_hash TEXT, -- cdclint:ignore schema-before-connector: PII, never streamed
+    ADD COLUMN nickname TEXT;
+```
+
+The finding no longer fails the run and is listed as acknowledged, with the
+reason; `nickname`, on the next line, is still raised. A marker after code
+covers its own line only; a marker on a line of its own covers the line
+below. It works in migrations and in sink DDL, with `--` or MySQL's `#`, and
+names one or more rules separated by commas. The reason after the colon is
+required, because it is the record of the decision. A marker with no reason,
+with a rule name that does not exist, or that covers no finding is itself a
+warning (`ignore-marker`). A `schema-before-connector` marker is expected to
+go quiet once its pull request merges, since that rule judges the change;
+to keep the column out of the inventory afterwards too, name both rules:
+`-- cdclint:ignore schema-before-connector,source-column-not-captured: PII`.
+
 Files in, findings out, non-zero exit. No database, no daemon, no credentials.
 Under a second on a laptop. `--fail-on warning` or `info` raises the bar;
 `--format json` is for anything that wants to post findings somewhere. A

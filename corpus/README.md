@@ -26,6 +26,8 @@ The rest exercise one path each:
 | `clickhouse-kafka-connect` | a ClickHouse MergeTree table fed by the Kafka Connect sink rather than a Kafka-engine table |
 | `kafka-topic-typo` | a Kafka-engine table naming a topic nothing produces |
 | `include-list-typo` | an include-list pattern that matches no column, and the read it silently breaks |
+| `ignore-marker-pii` | the diff rule with a decision recorded: of two columns added and left off the include list, the one whose line says `cdclint:ignore schema-before-connector: PII` is acknowledged and the forgotten one is raised; a trailing marker does not reach the next line |
+| `ignore-marker-mistakes` | markers used wrong: one with no reason, one naming a rule that does not exist, one covering nothing, each an `ignore-marker` warning; and one on the line above a finding, which acknowledges it |
 | `golang-migrate-down-files` | Mattermost v10.11.0's `000092_add_createat_to_teammembers.down.sql` drops a column from the wrong table; read in name order it ran just before its up file and deleted `reactions.createat`. Down files are skipped |
 | `goose-down-section` | a goose file's down section follows its up section; applied whole, every table was created and dropped again. Down sections are skipped |
 | `include-table-no-schema` | Stack Overflow 74103659: `table.include.list` names `ipaddrs` without its schema, the connector runs and no topic appears |

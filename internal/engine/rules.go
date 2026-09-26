@@ -15,6 +15,7 @@ var Rules = []string{
 	"sink-column-flattened",
 	"mv-column-match",
 	"schema-before-connector",
+	"ignore-marker",
 }
 
 // KnownRule reports whether name is one of Rules.
