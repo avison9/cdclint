@@ -82,7 +82,13 @@ func TestCorpus(t *testing.T) {
 			if _, err := os.Stat(filepath.Join(name, "base")); err == nil {
 				in.Base = baseFromDir(t, filepath.Join(name, "base"), filepath.Join(name, "connector.json"))
 			}
-			got := Render(engine.Run(in))
+			findings := engine.Run(in)
+			for _, f := range findings {
+				if !engine.KnownRule(f.Rule) {
+					t.Errorf("finding from rule %q, which engine.Rules does not list; --disable could not name it", f.Rule)
+				}
+			}
+			got := Render(findings)
 			expectedPath := filepath.Join(name, "expected.txt")
 			if *update {
 				if err := os.WriteFile(expectedPath, []byte(got), 0o644); err != nil {

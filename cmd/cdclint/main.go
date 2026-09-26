@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -36,16 +37,18 @@ func (m *multi) String() string     { return strings.Join(*m, ",") }
 func (m *multi) Set(v string) error { *m = append(*m, v); return nil }
 
 func main() {
-	os.Exit(run(os.Args[1:]))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-func run(args []string) int {
+func run(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("cdclint", flag.ContinueOnError)
+	fs.SetOutput(stderr)
 	var (
 		migrations = fs.String("migrations", "", "directory of source migrations, applied in name order; Postgres or MySQL, from the connector class, or say it with postgres:DIR or mysql:DIR")
 		connector  = fs.String("connector", "", "Debezium source connector JSON")
 		sinks      multi
 		sinkConns  multi
+		disable    multi
 		format     = fs.String("format", "text", "output format: text or json")
 		minSev     = fs.String("fail-on", "error", "exit non-zero at this severity or above: error, warning, info")
 		base       = fs.String("base", "", "git ref of the change's base (a branch, a commit, origin/main); enables schema-before-connector, which judges the diff")
@@ -53,6 +56,8 @@ func run(args []string) int {
 	)
 	fs.Var(&sinks, "sink", "sink DDL directory as [dialect:]DIR; dialect is clickhouse (default), bigquery, snowflake or iceberg; repeatable")
 	fs.Var(&sinkConns, "sink-connector", "Kafka Connect sink connector JSON; repeatable")
+	fs.Var(&disable, "disable", "rule names to leave out, comma-separated or repeated: "+strings.Join(engine.Rules, ", ")+
+		"; their findings are not shown and do not fail the run, and the output says how many were left out")
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "usage: cdclint --migrations DIR --connector FILE --sink [dialect:]DIR [--sink-connector FILE]...")
 		fs.PrintDefaults()
@@ -61,8 +66,21 @@ func run(args []string) int {
 		return 2
 	}
 	if *showVer || (fs.NArg() > 0 && fs.Arg(0) == "version") {
-		fmt.Println("cdclint", version)
+		fmt.Fprintln(stdout, "cdclint", version)
 		return 0
+	}
+	disabled := map[string]bool{}
+	for _, v := range disable {
+		for _, name := range strings.Split(v, ",") {
+			if name = strings.TrimSpace(name); name == "" {
+				continue
+			}
+			if !engine.KnownRule(name) {
+				fmt.Fprintf(stderr, "cdclint: --disable: unknown rule %q; the rules are %s\n", name, strings.Join(engine.Rules, ", "))
+				return 2
+			}
+			disabled[name] = true
+		}
 	}
 	if *migrations == "" || *connector == "" || len(sinks) == 0 {
 		fs.Usage()
@@ -70,21 +88,25 @@ func run(args []string) int {
 	}
 	in, err := load(*migrations, *connector, sinks, sinkConns)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "cdclint:", err)
+		fmt.Fprintln(stderr, "cdclint:", err)
 		return 2
 	}
-	if *base != "" {
+	// Disabling the diff rule is the same as not giving --base: filtering
+	// its findings afterwards would also drop the columns it raised, which
+	// source-column-not-captured then leaves out of its list, so they
+	// would appear nowhere.
+	if *base != "" && !disabled["schema-before-connector"] {
 		b, err := LoadBase(*base, *migrations, *connector)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "cdclint:", err)
+			fmt.Fprintln(stderr, "cdclint:", err)
 			return 2
 		}
 		in.Base = b
 	}
-	findings := engine.Run(in)
+	findings, hidden := without(engine.Run(in), disabled)
 	switch *format {
 	case "json":
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(stdout)
 		enc.SetIndent("", "  ")
 		type out struct {
 			Rule     string `json:"rule"`
@@ -102,8 +124,19 @@ func run(args []string) int {
 			rows = []out{}
 		}
 		_ = enc.Encode(rows)
+		// The array's shape is what consumers parse, so the note goes
+		// to stderr rather than into it.
+		if note := hiddenNote(hidden); note != "" {
+			fmt.Fprint(stderr, "cdclint: "+note)
+		}
 	default:
-		os.Stdout.WriteString(Render(findings))
+		if len(findings) == 0 && len(hidden) > 0 {
+			// "Agree" would claim more than was checked.
+			fmt.Fprintln(stdout, "ok: nothing to report outside the disabled rules")
+		} else {
+			fmt.Fprint(stdout, Render(findings))
+		}
+		fmt.Fprint(stdout, hiddenNote(hidden))
 	}
 	threshold := model.Error
 	switch *minSev {
@@ -118,6 +151,38 @@ func run(args []string) int {
 		}
 	}
 	return 0
+}
+
+// without removes the findings of disabled rules and counts them by rule.
+func without(findings []model.Finding, disabled map[string]bool) ([]model.Finding, map[string]int) {
+	if len(disabled) == 0 {
+		return findings, nil
+	}
+	var kept []model.Finding
+	hidden := map[string]int{}
+	for _, f := range findings {
+		if disabled[f.Rule] {
+			hidden[f.Rule]++
+			continue
+		}
+		kept = append(kept, f)
+	}
+	return kept, hidden
+}
+
+// hiddenNote says what --disable left out, so a filtered run never reads as
+// a clean one. It is empty when nothing was left out.
+func hiddenNote(hidden map[string]int) string {
+	if len(hidden) == 0 {
+		return ""
+	}
+	var parts []string
+	for _, r := range engine.Rules {
+		if n := hidden[r]; n > 0 {
+			parts = append(parts, fmt.Sprintf("%s %d", r, n))
+		}
+	}
+	return "not shown (--disable): " + strings.Join(parts, ", ") + "\n"
 }
 
 // Render is the text output: findings, then a one-line summary.
