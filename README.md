@@ -176,6 +176,15 @@ on every pull request by default, against the base branch's tip. Paths on
 the command line are relative to the current directory, in the working
 tree and at the base alike, so it runs from a subdirectory of a monorepo.
 
+`--disable RULE[,RULE]` leaves rules out: their findings are not shown and do
+not fail the run, and the output ends with what was left out, for example
+`not shown (--disable): source-column-not-captured 161`, so a filtered run
+never reads as a clean one. `--disable source-column-not-captured` is the usual
+one, for a repository that has read its inventory of uncaptured columns and
+does not want it on every run. Disabling `schema-before-connector` is the same
+as leaving out `--base`. An unknown rule name is an error, not a filter that
+hides nothing.
+
 Files in, findings out, non-zero exit. No database, no daemon, no credentials.
 Under a second on a laptop. `--fail-on warning` or `info` raises the bar;
 `--format json` is for anything that wants to post findings somewhere. A
