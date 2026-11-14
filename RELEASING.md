@@ -44,6 +44,17 @@ Check the run, then check the places a user meets it: the Release page,
 `brew install --cask avison9/tap/cdclint` (the binary) on a Mac or Linux
 box, and a workflow using the action.
 
+Then bring the docs that name a version up to the new tag, in one pull
+request:
+
+- `INSTALLING.md`: the three release-archive examples (`VERSION=` twice,
+  `$Version =` once) and the `version:` pin example. They stayed at 0.1.0
+  through four releases, so the copy-paste path installed a version without
+  `--base`, `--disable` or `cdclint:ignore`.
+- `docs/demo.tape`: change its version and re-record it with the two
+  commands in its header, so the README's recording downloads the release
+  the README describes.
+
 ## Trying the build without releasing
 
 ```
