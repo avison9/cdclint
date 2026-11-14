@@ -6,6 +6,8 @@
 #   printf 'FROM ghcr.io/charmbracelet/vhs:v0.10.0\nRUN apt-get update --allow-releaseinfo-change && apt-get install -y --no-install-recommends git curl ca-certificates\n' | docker build -t cdclint-vhs -
 #   docker run --rm --shm-size=2g -v "$PWD":/vhs -w /vhs cdclint-vhs docs/demo.tape
 #
+# The downloads and the clone are followed by Wait on the prompt, not a fixed
+# Sleep: a slow clone otherwise has the next command typed into its output.
 # --shm-size matters: without it Chromium drops about half the frames and
 # the video plays at double speed. The safe.directory line is there because
 # the container runs as root on files the host owns; for the same reason the
@@ -25,23 +27,25 @@ Set WindowBar Colorful
 Set CursorBlink false
 
 Hide
-Type "git config --global --add safe.directory '*' && mkdir -p /tmp/demo && cd /tmp/demo && export PS1='\[\e[1;34m\]$\[\e[0m\] ' && clear"
+Type "git config --global --add safe.directory '*' && mkdir -p /tmp/demo && cd /tmp/demo && export PS1='\[\e[1;32m\]root@avison\[\e[0m\]:\[\e[1;34m\]\W\[\e[0m\]# ' && clear"
 Enter
 Sleep 500ms
 Show
 
 Type "# 1. Download a release and check it against the published checksums"
 Enter
-Type "curl -sSLO https://github.com/avison9/cdclint/releases/download/v0.4.0/cdclint_0.4.0_linux_amd64.tar.gz"
+Type "curl -sSLO https://github.com/avison9/cdclint/releases/download/v0.4.1/cdclint_0.4.1_linux_amd64.tar.gz"
 Enter
-Sleep 3s
-Type "curl -sSLO https://github.com/avison9/cdclint/releases/download/v0.4.0/checksums.txt"
+Wait /demo# ?$/
+Sleep 500ms
+Type "curl -sSLO https://github.com/avison9/cdclint/releases/download/v0.4.1/checksums.txt"
 Enter
-Sleep 2s
+Wait /demo# ?$/
+Sleep 500ms
 Type "sha256sum --check --ignore-missing checksums.txt"
 Enter
 Sleep 2s
-Type "tar -xzf cdclint_0.4.0_linux_amd64.tar.gz -C /usr/local/bin cdclint"
+Type "tar -xzf cdclint_0.4.1_linux_amd64.tar.gz -C /usr/local/bin cdclint"
 Enter
 Sleep 1s
 Type "cdclint --version"
@@ -57,7 +61,8 @@ Type "# 2. Point it at your three schemas: migrations, connector, sink. Here, a 
 Enter
 Type "git clone -q --depth 1 https://github.com/avison9/cdclint && cd cdclint"
 Enter
-Sleep 4s
+Wait /cdclint# ?$/
+Sleep 500ms
 Type "cdclint --migrations corpus/include-list-typo/migrations --connector corpus/include-list-typo/connector.json --sink corpus/include-list-typo/sink"
 Enter
 Sleep 1.5s

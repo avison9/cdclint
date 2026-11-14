@@ -36,7 +36,7 @@ first run; a formula build is never quarantined.
 **Release archive**, without Homebrew:
 
 ```
-VERSION=0.4.0
+VERSION=0.4.1
 ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
 curl -sSLO "https://github.com/avison9/cdclint/releases/download/v$VERSION/cdclint_${VERSION}_darwin_${ARCH}.tar.gz"
 tar -xzf "cdclint_${VERSION}_darwin_${ARCH}.tar.gz" cdclint
@@ -63,7 +63,7 @@ brew install --cask avison9/tap/cdclint
 **Release archive** (any distribution, no package manager needed):
 
 ```
-VERSION=0.4.0
+VERSION=0.4.1
 ARCH=$(uname -m | sed 's/x86_64/amd64/; s/aarch64/arm64/')
 curl -sSLO "https://github.com/avison9/cdclint/releases/download/v$VERSION/cdclint_${VERSION}_linux_${ARCH}.tar.gz"
 tar -xzf "cdclint_${VERSION}_linux_${ARCH}.tar.gz" cdclint
@@ -81,7 +81,7 @@ fleet needs them; goreleaser can produce both.
 **Release archive** (PowerShell):
 
 ```powershell
-$Version = "0.4.0"
+$Version = "0.4.1"
 $Arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
 $Dir = "$env:LOCALAPPDATA\Programs\cdclint"
 New-Item -ItemType Directory -Force $Dir | Out-Null
@@ -127,7 +127,7 @@ verifies its checksum:
     sink: analytics/schema
 ```
 
-Pin a version with `version: v0.4.0` if you want to control upgrades.
+Pin a version with `version: v0.4.1` if you want to control upgrades.
 
 ## Docker
 
