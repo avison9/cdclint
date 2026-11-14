@@ -3,8 +3,8 @@
 Lint the contract between your database, your Debezium connector and your
 sink, before the deploy that silently drops a column.
 
-**Status: v0.4.** Ten rules run against a corpus of real incidents; two
-more are next. Reads Postgres and MySQL (or MariaDB) sources. `--disable`
+**Status: v0.5.** Eleven rules run against a corpus of real incidents; one
+more is next. Reads Postgres and MySQL (or MariaDB) sources. `--disable`
 leaves a rule out and `cdclint:ignore` records a decision on the line it is
 about. Released for macOS, Linux and Windows, on Homebrew and on the GitHub
 Marketplace.
@@ -94,7 +94,7 @@ edited by hand.
 | `sink-column-flattened` | a sink table names its columns as the source does while a `Flatten` transform on the way delivers the envelope as `after.<column>`, so every column stays at its default | v0.3 |
 | `mv-column-match` | ClickHouse streaming materialized views match by name, refreshable ones by position. ClickHouse 25.4 and later reject a streaming view that writes a column the target lacks when it is created; a refreshable view's order mismatch was loud on 24.8 and is silent on 26.8 | v0.1 |
 | `schema-before-connector` | this change adds a column to a captured table and leaves it out of the stream without deciding to, the trap itself, judged on the diff (warning: leaving PII off is right, so it asks for the decision) | v0.2 |
-| `replica-identity` | a captured Postgres table has no replica identity (`NOTHING`, or `DEFAULT` with no primary key, after the connector's `replica.identity.autoset.values`): through `pgoutput` Postgres rejects the application's `UPDATE` and `DELETE` on it, through `decoderbufs` Debezium streams only its inserts (warning: an insert-only table loses nothing, and a `cdclint:ignore` says so) | next |
+| `replica-identity` | a captured Postgres table has no replica identity (`NOTHING`, or `DEFAULT` with no primary key, after the connector's `replica.identity.autoset.values`): through `pgoutput` Postgres rejects the application's `UPDATE` and `DELETE` on it, through `decoderbufs` Debezium streams only its inserts (warning: an insert-only table loses nothing, and a `cdclint:ignore` says so) | v0.5 |
 | `migration-numbering` | duplicate or gapped migration prefixes | next |
 
 Findings name the file, the column, the rule and the fix:
