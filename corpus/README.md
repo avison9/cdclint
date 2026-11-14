@@ -32,6 +32,7 @@ The rest exercise one path each:
 | `ignore-marker-mistakes` | markers used wrong: one with no reason, one naming a rule that does not exist, one covering nothing, each an `ignore-marker` warning; and one on the line above a finding, which acknowledges it |
 | `golang-migrate-down-files` | Mattermost v10.11.0's `000092_add_createat_to_teammembers.down.sql` drops a column from the wrong table; read in name order it ran just before its up file and deleted `reactions.createat`. Down files are skipped |
 | `goose-down-section` | a goose file's down section follows its up section; applied whole, every table was created and dropped again. Down sections are skipped |
+| `postgres-glued-constraints` | Mattermost v10.11.0 (000006 emoji, 000037 sharedchannelremotes): `UNIQUE(name, deleteat)` and `PRIMARY KEY(id, channelid)` with no space before the parenthesis are table constraints, not columns named after them; the primary key is kept |
 | `include-table-no-schema` | Stack Overflow 74103659: `table.include.list` names `ipaddrs` without its schema, the connector runs and no topic appears |
 | `include-table-glob` | Stack Overflow 51345636: `public.bg_*` written as a shell glob; as a regular expression it names no table |
 | `include-table-typo` | a misspelled `table.include.list` entry, which Debezium only logs as a warning (debezium/dbz#872) |

@@ -103,3 +103,42 @@ func TestColumnsAnAlterAddsAreOnTheirOwnLines(t *testing.T) {
 		}
 	}
 }
+
+func TestAConstraintGluedToItsParenthesisIsNotAColumn(t *testing.T) {
+	// Mattermost 000037_create_sharedchannelremotes.up.sql writes
+	// PRIMARY KEY(id, channelid) and UNIQUE(channelid, remoteid) with no
+	// space: the word splitter keeps "UNIQUE(channelid, remoteid)" as one
+	// word, which was read as a column of that name, and "KEY(id,
+	// channelid)", which hid the primary key.
+	src := &model.Source{}
+	text := `CREATE TABLE IF NOT EXISTS sharedchannelremotes (
+    id character varying(26) NOT NULL,
+    channelid character varying(26) NOT NULL,
+    remoteid character varying(26),
+    price int CHECK(price > 0),
+    PRIMARY KEY(id, channelid),
+    UNIQUE(channelid, remoteid),
+    CHECK(remoteid <> '')
+);
+ALTER TABLE sharedchannelremotes ADD UNIQUE(remoteid);
+ALTER TABLE sharedchannelremotes ADD CHECK(price < 100);
+ALTER TABLE sharedchannelremotes ADD COLUMN note TEXT;`
+	if err := Apply(src, "000037.up.sql", text); err != nil {
+		t.Fatal(err)
+	}
+	r := src.Table("public", "sharedchannelremotes")
+	if r == nil {
+		t.Fatal("table missing")
+	}
+	var names []string
+	for _, c := range r.Columns {
+		names = append(names, c.Name+":"+c.Type)
+	}
+	want := "[id:character varying(26) channelid:character varying(26) remoteid:character varying(26) price:int note:TEXT]"
+	if got := formatSlice(names); got != want {
+		t.Errorf("columns = %s, want %s", got, want)
+	}
+	if formatSlice(r.PrimaryKey) != "[id channelid]" {
+		t.Errorf("primary key = %v, want [id channelid]", r.PrimaryKey)
+	}
+}
