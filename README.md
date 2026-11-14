@@ -9,6 +9,13 @@ leaves a rule out and `cdclint:ignore` records a decision on the line it is
 about. Released for macOS, Linux and Windows, on Homebrew and on the GitHub
 Marketplace.
 
+![Installing cdclint, checking the download, and running it on a dropped column](docs/demo.gif)
+
+Under a minute: download a release, check it against the published
+checksums, and run it on a real failure from the [corpus](corpus/). The
+same recording as [an MP4](docs/demo.mp4); the script that records it is
+[`docs/demo.tape`](docs/demo.tape).
+
 ## Why are my columns null?
 
 A change-data-capture pipeline has three schemas that must agree and nothing
