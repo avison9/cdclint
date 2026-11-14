@@ -70,6 +70,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "cdclint", version)
 		return 0
 	}
+	// An unknown --fail-on used to fall through to error, so
+	// `--fail-on warnings` let warnings pass while the pipeline believed it
+	// blocked on them. It is checked before anything is read, like
+	// --disable, so a typo cannot look like a clean run.
+	threshold, ok := map[string]model.Severity{"error": model.Error, "warning": model.Warning, "info": model.Info}[*minSev]
+	if !ok {
+		fmt.Fprintf(stderr, "cdclint: --fail-on: unknown severity %q; the severities are error, warning, info\n", *minSev)
+		return 2
+	}
 	disabled := map[string]bool{}
 	for _, v := range disable {
 		for _, name := range strings.Split(v, ",") {
@@ -138,13 +147,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	default:
 		fmt.Fprint(stdout, TextReport(findings, hidden, acked))
-	}
-	threshold := model.Error
-	switch *minSev {
-	case "warning":
-		threshold = model.Warning
-	case "info":
-		threshold = model.Info
 	}
 	for _, f := range findings {
 		if f.Severity >= threshold {

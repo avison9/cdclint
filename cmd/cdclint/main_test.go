@@ -88,3 +88,32 @@ func TestJSONKeepsItsShapeAndNotesOnStderr(t *testing.T) {
 		t.Errorf("stderr %q", errOut)
 	}
 }
+
+func TestAnUnknownFailOnIsAnErrorNotTheDefault(t *testing.T) {
+	// "warnings" used to fall through to the default, error: a pipeline
+	// that asked to block on warnings passed them silently. include-list-typo
+	// has a warning and an error, so any lint that ran would exit 1.
+	// An explicit empty value is rejected too; action.yml maps an empty
+	// input to error itself, so only the CLI sees "" from a person.
+	for _, bad := range []string{"warnings", "WARNING", "err", ""} {
+		code, out, errOut := cli(t, append(entry("include-list-typo"), "--fail-on", bad)...)
+		if code != 2 || out != "" {
+			t.Errorf("--fail-on %q: exit %d, stdout %q; want exit 2 before linting", bad, code, out)
+		}
+		if !strings.Contains(errOut, "--fail-on") || !strings.Contains(errOut, "error, warning, info") {
+			t.Errorf("--fail-on %q: stderr %q", bad, errOut)
+		}
+	}
+	// The three that exist still work; info and warning reach the warning.
+	for sev, want := range map[string]int{"error": 1, "warning": 1, "info": 1} {
+		if code, _, _ := cli(t, append(entry("include-list-typo"), "--fail-on", sev)...); code != want {
+			t.Errorf("--fail-on %s: exit %d, want %d", sev, code, want)
+		}
+	}
+	if code, _, _ := cli(t, append(entry("include-list-typo"), "--fail-on", "warning", "--disable", "sink-column-not-captured")...); code != 1 {
+		t.Errorf("--fail-on warning with only the warning left: exit %d, want 1", code)
+	}
+	if code, _, _ := cli(t, append(entry("include-list-typo"), "--disable", "sink-column-not-captured")...); code != 0 {
+		t.Errorf("default --fail-on error with only the warning left: exit %d, want 0", code)
+	}
+}

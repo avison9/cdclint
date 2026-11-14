@@ -219,7 +219,8 @@ to keep the column out of the inventory afterwards too, name both rules:
 `-- cdclint:ignore schema-before-connector,source-column-not-captured: PII`.
 
 Files in, findings out, non-zero exit. No database, no daemon, no credentials.
-Under a second on a laptop. `--fail-on warning` or `info` raises the bar;
+Under a second on a laptop. `--fail-on warning` or `info` raises the bar
+(any other value is an error, not the default);
 `--format json` is for anything that wants to post findings somewhere. A
 later live mode reads the deployed Postgres, Kafka Connect and sink to report
 drift against what is actually running.

@@ -133,7 +133,10 @@ runs:
         PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         set -uo pipefail
-        args=(--migrations "$MIGRATIONS" --connector "$CONNECTOR" --fail-on "$FAIL_ON")
+        # An empty input (a workflow passing an unset variable) meant error
+        # before cdclint checked --fail-on, and still does; anything else
+        # that is not error, warning or info now fails the step.
+        args=(--migrations "$MIGRATIONS" --connector "$CONNECTOR" --fail-on "${FAIL_ON:-error}")
         if [ -n "$DISABLE" ]; then
           args+=(--disable "$DISABLE")
         fi
