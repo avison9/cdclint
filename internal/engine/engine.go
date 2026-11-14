@@ -199,6 +199,7 @@ func Run(in *Input) []model.Finding {
 	fs = append(fs, sourceColumnNotCaptured(in, reads, raised)...)
 	fs = append(fs, capturedColumnMissing(in)...)
 	fs = append(fs, capturedTableMissing(in)...)
+	fs = append(fs, replicaIdentity(in)...)
 	fs = append(fs, mvColumnMatch(in)...)
 	model.Sort(fs)
 	return fs

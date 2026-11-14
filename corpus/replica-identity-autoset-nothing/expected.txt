@@ -1,0 +1,5 @@
+warning replica-identity replica-identity-autoset-nothing/connector.json
+  public.orders is captured with REPLICA IDENTITY NOTHING, set by replica.identity.autoset.values in replica-identity-autoset-nothing/connector.json, so it has no replica identity
+  Debezium's update and delete events for it carry no previous values, so a delete has no before to say which row went
+  fix: take public.orders out of replica.identity.autoset.values, or set it to DEFAULT (it has a primary key) or FULL; if it only ever takes inserts, say so on the line that creates it: -- cdclint:ignore replica-identity: append-only
+0 error(s), 1 warning(s), 0 info

@@ -9,3 +9,8 @@ CREATE TABLE testradiomeas (
     "measNetNoCoverage" INTEGER,
     "measNetType"       TEXT
 );
+
+-- The discussion's sample message carries a whole "before" row (measDate,
+-- measLongitude, ...) on a table with no primary key, which only REPLICA
+-- IDENTITY FULL produces: with DEFAULT the connector would emit inserts only.
+ALTER TABLE testradiomeas REPLICA IDENTITY FULL;

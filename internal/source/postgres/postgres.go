@@ -10,6 +10,7 @@ package postgres
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/avison9/cdclint/internal/ddl"
@@ -64,9 +65,28 @@ func Apply(src *model.Source, file, text string) error {
 			alterTable(src, st.Text, w, pos)
 		case ddl.HasPrefixFold(w, "DROP", "TABLE"):
 			dropTable(src, w)
+		case ddl.HasPrefixFold(w, "DO"):
+			doBlock(src, st.Text)
 		}
 	}
 	return nil
+}
+
+// alterInDo finds the tables a DO block's body alters.
+var alterInDo = regexp.MustCompile(`(?i)\bALTER\s+TABLE\s+(?:ONLY\s+)?(?:IF\s+EXISTS\s+)?((?:"[^"]+"|[\w$]+)(?:\.(?:"[^"]+"|[\w$]+))?)`)
+
+// doBlock does not run a DO block: its body is procedural, often guarded
+// by a condition on the catalog. It marks the tables the body alters as
+// having an unknown key, so a rule that depends on the key stays quiet
+// rather than judge a table whose key may be added there (Mattermost
+// 000016_create_reactions.up.sql adds reactions' primary key in one).
+func doBlock(src *model.Source, text string) {
+	for _, m := range alterInDo.FindAllStringSubmatch(text, -1) {
+		schema, table := splitQualified(m[1])
+		if t := src.Table(schema, table); t != nil {
+			t.KeyUnknown = true
+		}
+	}
 }
 
 func splitQualified(name string) (schema, table string) {
@@ -267,6 +287,14 @@ func alterTable(src *model.Source, text string, w []string, pos model.Pos) {
 					c.Name = ddl.Unquote(aw[j+2])
 					c.Pos = pos
 				}
+			}
+		case hasKeywords(aw, "ADD", "PRIMARY", "KEY"), hasKeywords(aw, "ADD", "CONSTRAINT") && len(aw) > 3 && hasKeywords(aw[3:], "PRIMARY", "KEY"):
+			// A key added after the table, as migrations that split
+			// constraints out do. USING INDEX names no columns here.
+			if cols := keyColumns(a); len(cols) > 0 {
+				t.PrimaryKey = cols
+			} else {
+				t.KeyUnknown = true
 			}
 		case ddl.HasPrefixFold(aw, "RENAME", "TO"):
 			if len(aw) >= 3 {

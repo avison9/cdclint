@@ -40,10 +40,20 @@ type Contract struct {
 	columnPatterns []string
 	tablePatterns  []string
 	routers        []router
+	autoset        []autoset
+	autosetErr     bool
 	shape          model.Shape
 	Config         map[string]string
 	Class          string
 	Name           string
+}
+
+// autoset is one pair of replica.identity.autoset.values: a regular
+// expression over schema.table and the identity the connector sets on the
+// tables it captures that match it.
+type autoset struct {
+	re       *regexp.Regexp
+	identity model.ReplicaIdentity
 }
 
 type router struct {
@@ -128,6 +138,7 @@ func Parse(b []byte) (*Contract, error) {
 	if c.columnListKey == "" {
 		c.columnListKey = "column.include.list"
 	}
+	c.autoset, c.autosetErr = autosets(cfg["replica.identity.autoset.values"])
 	if c.tableListKey == "" {
 		c.tableListKey = "table.include.list"
 	}
@@ -333,3 +344,71 @@ func (c *Contract) ColumnPatterns() []string { return c.columnPatterns }
 // reason as columns.
 func (c *Contract) TablePatterns() []string  { return c.tablePatterns }
 func (c *Contract) TableListSetting() string { return c.tableListKey }
+
+// autosets reads replica.identity.autoset.values, documented as
+// comma-separated "<regex>:<identity>" pairs, identity one of DEFAULT,
+// FULL, NOTHING or INDEX <name>. A pair it cannot read makes the whole
+// setting unreadable (bad), so the replica-identity rule makes no finding
+// rather than judge a table by a setting it misread.
+func autosets(v string) (out []autoset, bad bool) {
+	for _, pair := range strings.Split(v, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		i := strings.LastIndex(pair, ":")
+		if i <= 0 {
+			return nil, true
+		}
+		// Matched like the include lists: whole name, ignoring case.
+		re, err := regexp.Compile("(?i)^(?:" + strings.TrimSpace(pair[:i]) + ")$")
+		if err != nil {
+			return nil, true
+		}
+		var id model.ReplicaIdentity
+		switch value := strings.ToUpper(strings.TrimSpace(pair[i+1:])); {
+		case value == "DEFAULT":
+			id = model.ReplicaDefault
+		case value == "FULL":
+			id = model.ReplicaFull
+		case value == "NOTHING":
+			id = model.ReplicaNothing
+		case strings.HasPrefix(value, "INDEX "):
+			id = model.ReplicaIndex
+		default:
+			return nil, true
+		}
+		out = append(out, autoset{re, id})
+	}
+	return out, false
+}
+
+// ReplicaIdentityOverride is the identity replica.identity.autoset.values
+// gives a captured table. set is false when no pair names the table. ok is
+// false when the setting cannot be read or two pairs give the table
+// different identities: the documentation does not say which wins.
+func (c *Contract) ReplicaIdentityOverride(schema, table string) (id model.ReplicaIdentity, set, ok bool) {
+	if c.autosetErr {
+		return "", true, false
+	}
+	q := schema + "." + table
+	for _, a := range c.autoset {
+		if !a.re.MatchString(q) {
+			continue
+		}
+		if set && a.identity != id {
+			return "", true, false
+		}
+		id, set = a.identity, true
+	}
+	return id, set, true
+}
+
+// Plugin is plugin.name, the logical decoding plug-in; decoderbufs when
+// unset, Debezium's documented default.
+func (c *Contract) Plugin() string {
+	if p := strings.TrimSpace(c.Config["plugin.name"]); p != "" {
+		return strings.ToLower(p)
+	}
+	return "decoderbufs"
+}

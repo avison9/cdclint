@@ -1,0 +1,8 @@
+{
+  "name": "mm-source",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "topic.prefix": "mm",
+    "table.include.list": "public.reactions"
+  }
+}

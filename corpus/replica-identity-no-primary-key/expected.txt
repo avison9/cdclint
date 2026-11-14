@@ -1,0 +1,5 @@
+warning replica-identity replica-identity-no-primary-key/migrations/0001_audit_events.sql:3
+  public.audit_events is captured with REPLICA IDENTITY DEFAULT and no primary key, so it has no replica identity
+  Debezium emits only its inserts: updates and deletes never reach the stream, and the sink keeps every row as it was first written
+  fix: ALTER TABLE public.audit_events REPLICA IDENTITY FULL; in a new migration, or give it a primary key; if it only ever takes inserts, say so on the line that creates it: -- cdclint:ignore replica-identity: append-only
+0 error(s), 1 warning(s), 0 info

@@ -142,3 +142,37 @@ ALTER TABLE sharedchannelremotes ADD COLUMN note TEXT;`
 		t.Errorf("primary key = %v, want [id channelid]", r.PrimaryKey)
 	}
 }
+
+func TestAKeyAddedLaterOrInADoBlock(t *testing.T) {
+	src := &model.Source{}
+	text := `CREATE TABLE invoices (id UUID NOT NULL, total NUMERIC);
+ALTER TABLE invoices ADD CONSTRAINT invoices_pkey PRIMARY KEY (id);
+CREATE TABLE notes (id UUID NOT NULL);
+ALTER TABLE ONLY notes ADD PRIMARY KEY(id);
+CREATE TABLE reactions (userid TEXT NOT NULL, postid TEXT NOT NULL);
+DO $$
+BEGIN
+    ALTER TABLE reactions DROP CONSTRAINT IF EXISTS reactions_pkey, ADD PRIMARY KEY (postid, userid);
+END $$;
+CREATE TABLE tags (id UUID NOT NULL);
+ALTER TABLE tags ADD CONSTRAINT tags_pkey PRIMARY KEY USING INDEX tags_id_idx;`
+	if err := Apply(src, "0001.sql", text); err != nil {
+		t.Fatal(err)
+	}
+	if k := src.Table("public", "invoices").PrimaryKey; formatSlice(k) != "[id]" {
+		t.Errorf("invoices key = %v", k)
+	}
+	if k := src.Table("public", "notes").PrimaryKey; formatSlice(k) != "[id]" {
+		t.Errorf("notes key = %v", k)
+	}
+	// The DO body is not run, so its key is not known, and says so.
+	if r := src.Table("public", "reactions"); !r.KeyUnknown || len(r.PrimaryKey) != 0 {
+		t.Errorf("reactions: KeyUnknown %v key %v, want unknown and none read", r.KeyUnknown, r.PrimaryKey)
+	}
+	if !src.Table("public", "tags").KeyUnknown {
+		t.Error("tags: PRIMARY KEY USING INDEX names no columns; the key should be unknown")
+	}
+	if src.Table("public", "invoices").KeyUnknown {
+		t.Error("invoices: a key read in full is known")
+	}
+}
