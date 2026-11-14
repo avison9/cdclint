@@ -74,6 +74,14 @@ anything running.
 
 ## What it checks
 
+![cdclint architecture: inputs read as files, one model, every sink column resolved to the source column it expects, three groups of rules, decisions recorded in the SQL, findings with an exit code](docs/diagrams/architecture.svg)
+
+cdclint reads the three schemas and the connector as files into one model,
+resolves every sink column to the source column it expects, and asks three
+questions of the result. The diagram's source is
+[`docs/diagrams/architecture.svg`](docs/diagrams/architecture.svg), plain SVG
+edited by hand.
+
 | rule | catches | status |
 |---|---|---|
 | `sink-column-not-captured` | the sink reads a column the connector does not include | v0.1 |
