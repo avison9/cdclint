@@ -86,7 +86,7 @@ anything running.
 | `sink-column-flattened` | a sink table names its columns as the source does while a `Flatten` transform on the way delivers the envelope as `after.<column>`, so every column stays at its default | v0.3 |
 | `mv-column-match` | ClickHouse streaming materialized views match by name, refreshable ones by position. ClickHouse 25.4 and later reject a streaming view that writes a column the target lacks when it is created; a refreshable view's order mismatch was loud on 24.8 and is silent on 26.8 | v0.1 |
 | `schema-before-connector` | this change adds a column to a captured table and leaves it out of the stream without deciding to, the trap itself, judged on the diff (warning: leaving PII off is right, so it asks for the decision) | v0.2 |
-| `replica-identity` | a captured table's replica identity cannot supply what the sink reads | next |
+| `replica-identity` | a captured Postgres table has no replica identity (`NOTHING`, or `DEFAULT` with no primary key, after the connector's `replica.identity.autoset.values`): through `pgoutput` Postgres rejects the application's `UPDATE` and `DELETE` on it, through `decoderbufs` Debezium streams only its inserts (warning: an insert-only table loses nothing, and a `cdclint:ignore` says so) | next |
 | `migration-numbering` | duplicate or gapped migration prefixes | next |
 
 Findings name the file, the column, the rule and the fix:

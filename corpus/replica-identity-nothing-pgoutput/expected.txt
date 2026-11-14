@@ -1,0 +1,5 @@
+warning replica-identity replica-identity-nothing-pgoutput/migrations/0001_sessions.sql:3
+  public.sessions is captured with REPLICA IDENTITY NOTHING, so it has no replica identity
+  Postgres rejects UPDATE and DELETE on a table with no replica identity while a publication replicates them, and this connector reads through one (plugin.name pgoutput): the application's own writes to it fail
+  fix: ALTER TABLE public.sessions REPLICA IDENTITY DEFAULT; in a new migration (it has a primary key), or FULL; if it only ever takes inserts, say so on the line that creates it: -- cdclint:ignore replica-identity: append-only
+0 error(s), 1 warning(s), 0 info

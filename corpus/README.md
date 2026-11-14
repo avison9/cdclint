@@ -36,6 +36,12 @@ The rest exercise one path each:
 | `include-table-no-schema` | Stack Overflow 74103659: `table.include.list` names `ipaddrs` without its schema, the connector runs and no topic appears |
 | `include-table-glob` | Stack Overflow 51345636: `public.bg_*` written as a shell glob; as a regular expression it names no table |
 | `include-table-typo` | a misspelled `table.include.list` entry, which Debezium only logs as a warning (debezium/dbz#872) |
+| `replica-identity-no-primary-key` | a captured table with no primary key on `REPLICA IDENTITY DEFAULT`, read through the default `decoderbufs`: Debezium emits its inserts only |
+| `replica-identity-nothing-pgoutput` | a keyed table set to `REPLICA IDENTITY NOTHING`, read through `pgoutput`: Postgres rejects `UPDATE` and `DELETE` on a published table with no replica identity |
+| `replica-identity-autoset-nothing` | the connector's `replica.identity.autoset.values` sets `NOTHING` on a keyed table; the finding points at the connector, which is what to edit |
+| `replica-identity-autoset-full` | the same keyless table as `replica-identity-no-primary-key`, with the connector setting `FULL`: nothing to report |
+| `replica-identity-key-added-later` | the primary key arrives in a later `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY`: nothing to report |
+| `replica-identity-key-in-do-block` | Mattermost v10.11.0 `000016_create_reactions.up.sql`, as written: the key is added inside a `DO` block, which cdclint does not run, so it makes no finding rather than guess |
 | `flatten-bare-columns` | ClickHouse/clickhouse-kafka-connect discussion 182: a `Flatten` transform on the Debezium connector sends `after.<column>`, the ClickHouse table names its columns as Postgres does, and every change lands as a row of zeros |
 | `flatten-envelope-columns` | ClickHouse's own Postgres CDC example (ClickHouse/examples `cdc/postgresql` at ae417ae): `before.` and `after.` columns resolve to the source columns, so the capture rules see `postcode2`, which the include list added for this entry leaves out. The sink connector config there has no `connector.class`; it is added so the file names its sink |
 | `flatten-after-unwrap` | a guard: unwrapping first leaves a flat row, so a `Flatten` after it renames nothing |

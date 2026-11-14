@@ -1,0 +1,9 @@
+{
+  "name": "app-source",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "topic.prefix": "app",
+    "table.include.list": "public.orders",
+    "replica.identity.autoset.values": "public.orders:NOTHING"
+  }
+}

@@ -11,6 +11,7 @@ var Rules = []string{
 	"source-column-not-captured",
 	"captured-column-missing",
 	"captured-table-missing",
+	"replica-identity",
 	"topic-table-mapping",
 	"sink-column-flattened",
 	"mv-column-match",

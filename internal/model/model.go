@@ -54,7 +54,12 @@ type Table struct {
 	Columns         []Column
 	PrimaryKey      []string
 	ReplicaIdentity ReplicaIdentity
-	Pos             Pos
+	// KeyUnknown is set when a statement the reader does not run may have
+	// given the table its primary key or replica identity: a DO block that
+	// alters it (Mattermost adds reactions' key that way), or PRIMARY KEY
+	// USING INDEX. Rules that depend on the key make no finding then.
+	KeyUnknown bool
+	Pos        Pos
 }
 
 // Qualified is schema.name, the form Debezium matches include lists against.
