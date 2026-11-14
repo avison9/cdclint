@@ -117,9 +117,9 @@ func createTable(src *model.Source, text string, pos model.Pos) {
 		if len(iw) == 0 {
 			continue
 		}
-		switch strings.ToUpper(iw[0]) {
+		switch keyword(iw[0]) {
 		case "CONSTRAINT", "PRIMARY", "UNIQUE", "CHECK", "FOREIGN", "EXCLUDE", "LIKE":
-			if ddl.HasPrefixFold(iw, "PRIMARY", "KEY") {
+			if hasKeywords(iw, "PRIMARY", "KEY") {
 				t.PrimaryKey = keyColumns(item)
 			}
 			if ddl.HasPrefixFold(iw, "CONSTRAINT") && containsFold(iw, "PRIMARY") {
@@ -145,7 +145,7 @@ func createTable(src *model.Source, text string, pos model.Pos) {
 // the first constraint keyword.
 func typeWords(w []string) []string {
 	for i, x := range w {
-		switch strings.ToUpper(x) {
+		switch keyword(x) {
 		case "NOT", "NULL", "DEFAULT", "PRIMARY", "REFERENCES", "UNIQUE", "CHECK", "GENERATED", "CONSTRAINT", "COLLATE":
 			return w[:i]
 		}
@@ -163,6 +163,34 @@ func keyColumns(item string) []string {
 		cols = append(cols, ddl.Unquote(c))
 	}
 	return cols
+}
+
+// keyword is a word as a keyword: upper case, and cut at an opening
+// parenthesis. ddl.Words keeps a parenthesised group glued to the word
+// before it, and Postgres needs no space there: Mattermost writes
+// UNIQUE(channelid, remoteid) and PRIMARY KEY(id, channelid), which were
+// read as a column named "UNIQUE(channelid, remoteid)" and as no primary
+// key. Kept to this reader: in the ClickHouse reader a word such as
+// Kafka(...) is compared whole on purpose.
+func keyword(w string) string {
+	if i := strings.IndexByte(w, '('); i >= 0 {
+		w = w[:i]
+	}
+	return strings.ToUpper(w)
+}
+
+// hasKeywords is ddl.HasPrefixFold for keywords that may be glued to a
+// parenthesis.
+func hasKeywords(w []string, kws ...string) bool {
+	if len(w) < len(kws) {
+		return false
+	}
+	for i, kw := range kws {
+		if keyword(w[i]) != kw {
+			return false
+		}
+	}
+	return true
 }
 
 func containsFold(w []string, kw string) bool {
@@ -199,7 +227,7 @@ func alterTable(src *model.Source, text string, w []string, pos model.Pos) {
 			continue
 		}
 		switch {
-		case ddl.HasPrefixFold(aw, "ADD", "COLUMN"), ddl.HasPrefixFold(aw, "ADD") && !ddl.HasPrefixFold(aw, "ADD", "CONSTRAINT") && !ddl.HasPrefixFold(aw, "ADD", "PRIMARY") && !ddl.HasPrefixFold(aw, "ADD", "UNIQUE") && !ddl.HasPrefixFold(aw, "ADD", "CHECK") && !ddl.HasPrefixFold(aw, "ADD", "FOREIGN") && !ddl.HasPrefixFold(aw, "ADD", "EXCLUDE"):
+		case ddl.HasPrefixFold(aw, "ADD", "COLUMN"), ddl.HasPrefixFold(aw, "ADD") && !hasKeywords(aw, "ADD", "CONSTRAINT") && !hasKeywords(aw, "ADD", "PRIMARY") && !hasKeywords(aw, "ADD", "UNIQUE") && !hasKeywords(aw, "ADD", "CHECK") && !hasKeywords(aw, "ADD", "FOREIGN") && !hasKeywords(aw, "ADD", "EXCLUDE"):
 			j := 1
 			if strings.EqualFold(aw[j], "COLUMN") {
 				j++

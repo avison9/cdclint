@@ -1,0 +1,10 @@
+{
+  "name": "mattermost-source",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "plugin.name": "pgoutput",
+    "topic.prefix": "mm",
+    "table.include.list": "public.emoji,public.sharedchannelremotes",
+    "column.include.list": "public.emoji\\.(id|createat|updateat|deleteat|creatorid|name),public.sharedchannelremotes\\.(id|channelid|creatorid|createat|updateat|isinviteaccepted|isinviteconfirmed|remoteid|lastpostupdateat|lastpostid)"
+  }
+}
