@@ -34,18 +34,18 @@ Show
 
 Type "# 1. Download a release and check it against the published checksums"
 Enter
-Type "curl -sSLO https://github.com/avison9/cdclint/releases/download/v0.4.1/cdclint_0.4.1_linux_amd64.tar.gz"
+Type "curl -sSLO https://github.com/avison9/cdclint/releases/download/v0.5.0/cdclint_0.5.0_linux_amd64.tar.gz"
 Enter
 Wait /demo# ?$/
 Sleep 500ms
-Type "curl -sSLO https://github.com/avison9/cdclint/releases/download/v0.4.1/checksums.txt"
+Type "curl -sSLO https://github.com/avison9/cdclint/releases/download/v0.5.0/checksums.txt"
 Enter
 Wait /demo# ?$/
 Sleep 500ms
 Type "sha256sum --check --ignore-missing checksums.txt"
 Enter
 Sleep 2s
-Type "tar -xzf cdclint_0.4.1_linux_amd64.tar.gz -C /usr/local/bin cdclint"
+Type "tar -xzf cdclint_0.5.0_linux_amd64.tar.gz -C /usr/local/bin cdclint"
 Enter
 Sleep 1s
 Type "cdclint --version"
