@@ -1,0 +1,2 @@
+ok: nothing to report beyond what cdclint:ignore acknowledges
+acknowledged (cdclint:ignore): schema-before-connector ignore-marker-both-rules/migrations/0002_users_ssn_hash.sql:3: PII, never streamed

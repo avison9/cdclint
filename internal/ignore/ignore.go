@@ -4,7 +4,7 @@
 // where the pull request that made it shows it.
 //
 //	ALTER TABLE users
-//	    ADD COLUMN ssn_hash TEXT; -- cdclint:ignore schema-before-connector: PII, never streamed
+//	    ADD COLUMN ssn_hash TEXT; -- cdclint:ignore schema-before-connector,source-column-not-captured: PII, never streamed
 //
 // A marker names one or more rules and gives a reason after a colon. After
 // code on the same line it covers that line only; on a line of its own it

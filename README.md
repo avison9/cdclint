@@ -202,7 +202,7 @@ points at, with the reason:
 
 ```sql
 ALTER TABLE users
-    ADD COLUMN ssn_hash TEXT, -- cdclint:ignore schema-before-connector: PII, never streamed
+    ADD COLUMN ssn_hash TEXT, -- cdclint:ignore schema-before-connector,source-column-not-captured: PII, never streamed
     ADD COLUMN nickname TEXT;
 ```
 
@@ -213,10 +213,12 @@ below. It works in migrations and in sink DDL, with `--` or MySQL's `#`, and
 names one or more rules separated by commas. The reason after the colon is
 required, because it is the record of the decision. A marker with no reason,
 with a rule name that does not exist, or that covers no finding is itself a
-warning (`ignore-marker`). A `schema-before-connector` marker is expected to
-go quiet once its pull request merges, since that rule judges the change;
-to keep the column out of the inventory afterwards too, name both rules:
-`-- cdclint:ignore schema-before-connector,source-column-not-captured: PII`.
+warning (`ignore-marker`). Name both rules for a column left out of the
+stream, as above and as the diff rule's own fix suggests:
+`schema-before-connector` only exists in the pull request that adds the
+column, and after the merge the same column is `source-column-not-captured`
+on every run. A marker naming only the first goes quiet at the merge and the
+column comes back into the inventory.
 
 Files in, findings out, non-zero exit. No database, no daemon, no credentials.
 Under a second on a laptop. `--fail-on warning` or `info` raises the bar;
